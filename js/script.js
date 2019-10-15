@@ -1,5 +1,5 @@
 (function () {
-	var initPageSpeed = 35,
+	var pageSpeed = 35,
 	initFontSize = 60,
 	scrollDelay,
 	textColor = '#ffffff',
@@ -49,7 +49,7 @@
 			initFontSize = config.get('teleprompter_font_size');
 		}
 		if (config.get('teleprompter_speed')) {
-			initPageSpeed = config.get('teleprompter_speed');
+			pageSpeed = config.get('teleprompter_speed');
 		}
 		if (config.get('teleprompter_text')) {
 			$('#teleprompter').html(config.get('teleprompter_text'));
@@ -104,7 +104,7 @@
 		$('.speed').slider({
 			min: 0,
 			max: 50,
-			value: initPageSpeed,
+			value: pageSpeed,
 			orientation: "horizontal",
 			range: "min",
 			animate: true,
@@ -347,65 +347,39 @@
 
 	// Manage Speed Change
 	function speed(save) {
-		initPageSpeed = Math.floor(50 - $('.speed').slider('value'));
-		$('label.speed_label span').text('(' + $('.speed').slider('value') + ')');
-
+		let speed = Math.floor(
+			$('.speed').slider('value'));
+		$('label.speed_label span').text('(' + speed + ')');
 		if (save) {
-			config.set('teleprompter_speed', $('.speed').slider('value'));
+			config.set('teleprompter_speed', speed);
+		}
+		pageSpeed = speed;
+		if ($('body').hasClass('playing')) {
+			pageScroll();
 		}
 	}
 
 	// Manage Scrolling Teleprompter
 	function pageScroll(direction) {
-		var offset = 1;
-		var animate = 0;
-
+		if (pageSpeed == 0) {
+			$('article').stop().clearQueue();
+			return;
+		}
 		if (!direction) {
-			direction = 'down'
-			clearTimeout(scrollDelay);
-			scrollDelay = setTimeout(pageScroll, initPageSpeed);
-		} else {
-			offset = window.screen.availHeight / 2;
-			animate = 500;
+			direction = 'down';
 		}
-
-		if ($('.teleprompter').hasClass('flipy')) {
-			$('article').stop().animate({
-				scrollTop: (direction === 'down') ? '-=' + offset + 'px' : '+=' + offset + 'px'
-			}, animate, 'linear', function() {
+		let scrollTarget = $('article')[0].scrollHeight - $(window).height() - 100;
+		if (direction !== 'down' || $('.teleprompter').hasClass('flipy')) {
+			scrollTarget = 0;
+		}
+		let duration = 2500000 / pageSpeed;
+		$('article').stop().animate(
+			{ scrollTop: scrollTarget + 'px' },
+			duration,
+			'linear',
+			function() {
 				$('article').clearQueue();
 			});
-
-			// We're at the bottom of the document, stop
-			if ($("article").scrollTop() === 0) {
-				stop_teleprompter();
-				setTimeout(function() {
-					$('article').stop().animate({
-						scrollTop: $(".teleprompter").height() + 100
-					}, 500, 'swing', function() {
-						$('article').clearQueue();
-					});
-				}, 500);
-			}
-		} else {
-			$('article').stop().animate({
-				scrollTop: (direction === 'down') ? '+=' + offset + 'px' : '-=' + offset + 'px'
-			}, animate, 'linear', function() {
-				$('article').clearQueue();
-			});
-
-			// We're at the bottom of the document, stop
-			if ($("article").scrollTop() >= (($("article")[0].scrollHeight - $(window).height()) - 100)) {
-				stop_teleprompter();
-				setTimeout(function() {
-					$('article').stop().animate({
-						scrollTop: 0
-					}, 500, 'swing', function() {
-						$('article').clearQueue();
-					});
-				}, 500);
-			}
-		}
 	}
 
 	// Listen for Key Presses on Body
@@ -495,7 +469,8 @@
 			socket.emit('clientCommand', 'stop');
 		}
 
-		clearTimeout(scrollDelay);
+		$('article').stop().clearQueue();
+
 		$('#teleprompter').attr('contenteditable', true);
 		$('header h1, header nav').fadeTo('slow', 1);
 		$('.button.play').removeClass('icon-pause').addClass('icon-play');
